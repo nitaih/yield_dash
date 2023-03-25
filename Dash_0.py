@@ -1,5 +1,7 @@
 from click import style
 import pandas as pd
+import geopandas as gpd
+from shapely import wkt
 from dash import Dash, html, dcc
 # import dash
 # from dash import html
@@ -65,24 +67,34 @@ app.layout = html.Div(children = [
                                     # add graph divisions
                                     # html.Div([ ], id='plot1'),
                                     # html.Div([ ], id='plot2'),
+                                    
                                     html.Div([
-                                        html.Div([ ], id='plot1'),
-                                        html.Div([ ], id='plot2')
-                                        ], style={'display': 'flex'}),
-                                    ])
+                                        html.Div([
+                                            html.Div([ ], id='plot1'),
+                                            html.Div([ ], id='plot2'),]),
+                                        html.Div([
+                                            html.H2('Yield Map', style={'margin-right': '2em', 'font-size': '15px'}),
+                                            html.Div([ ], id='plot3')
+                                            ], style={'width':'80%'})  
+                                        ], style = {'display': 'flex'}),
+                                    
+                                        
+        ])
 
 @app.callback([
     Output(component_id='plot1', component_property='children'), 
-    Output(component_id='plot2', component_property='children')],
+    Output(component_id='plot2', component_property='children'),
+    Output(component_id='plot3', component_property='children')],
     [
         Input(component_id='input-year', component_property='value'),
         Input(component_id='input-crop', component_property='value'),
         Input(component_id='input-location', component_property='value')],
         [
             State(component_id="plot1", component_property='children'), 
-            State(component_id="plot2", component_property="children")])
+            State(component_id="plot2", component_property="children"),
+            State(component_id="plot3", component_property="children")])
 # Add computation to callback function and return graph
-def get_graph(year, crop, location, children1, children2):
+def get_graph(year, crop, location, children1, children2, children3):
     # filter year
     dfy = data[data['year'] == year]
     # filter crop
@@ -93,9 +105,55 @@ def get_graph(year, crop, location, children1, children2):
         units = 'Large/Total Ratio'
     else: units = 'g'
 
+    if crop == 'date':
+        if location == 'merav':
+            coord = [32.45229, 35.52110]
+            zoom = 17.5
+        elif location == 'havat eden':
+            coord = [32.46669, 35.49053]
+            zoom = 17.5
+    elif crop == 'mango':
+        if location == 'merav':
+            coord = [32.45752, 35.45842] 
+            zoom = 18
+        elif location == 'nir david':
+            coord = [32.50266, 35.44758]
+            zoom = 17.5
+    elif crop == 'onion':
+        coord = [32.50266, 35.44758]
+        zoom = 17.5
+
+    dfl['geometry'] = dfl['geometry'].apply(wkt.loads)
+    gdf = gpd.GeoDataFrame(dfl, crs='epsg:4326')
+    
+
     yield_fig = px.box(dfl,x='treatment',y='total yield (ton/dunam)', points='all', color='salinity', title='Total Yield per treatment')
     fruit_fig = px.box(dfl,x='treatment',y='fruit size', points='all', color='salinity', title='fruit size per treatment',labels={"fruit size": 'fruit size ({0})'.format(units)})
-    return [dcc.Graph(figure=yield_fig), dcc.Graph(figure=fruit_fig)]
+    map_fig = px.choropleth_mapbox(gdf,
+                           geojson=gdf.geometry,
+                           locations=gdf.index,
+                           hover_name="treatment",
+                           hover_data=["salinity", "water amount"],
+                           color="total yield (ton/dunam)",
+                           center={"lat": coord[0], "lon": coord[1]}, #35.44758,32.50266
+                        #    mapbox_style="open-street-map",
+                           zoom=zoom,
+                           title='Yield Map')
+
+    map_fig.update_layout(
+        mapbox_style="white-bg",
+        mapbox_layers=[
+            {
+                "below": 'traces',
+                "sourcetype": "raster",
+                "sourceattribution": "Google Hybrid",
+                "source": [
+                    "http://mt0.google.com/vt/lyrs=y&hl=en&x={x}&y={y}&z={z}"
+                ]
+            }
+        ])
+    map_fig.update_layout(margin={"r":0,"t":0,"l":0,"b":0})
+    return [dcc.Graph(figure=yield_fig), dcc.Graph(figure=fruit_fig), dcc.Graph(figure=map_fig)]
 # Run the app
 if __name__ == '__main__':
     app.run_server()
