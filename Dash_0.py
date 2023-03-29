@@ -105,13 +105,13 @@ def get_graph(year, crop, location, children1, children2, children3):
         units = 'Large/Total Ratio'
     else: units = 'g'
 
-    if crop == 'date':
+    if crop == 'dates':
         if location == 'merav':
             coord = [32.45229, 35.52110]
-            zoom = 17.5
+            zoom = 17
         elif location == 'havat eden':
             coord = [32.46669, 35.49053]
-            zoom = 17.5
+            zoom = 17
     elif crop == 'mango':
         if location == 'merav':
             coord = [32.45752, 35.45842] 
@@ -120,7 +120,7 @@ def get_graph(year, crop, location, children1, children2, children3):
             coord = [32.50266, 35.44758]
             zoom = 17.5
     elif crop == 'onion':
-        coord = [32.50266, 35.44758]
+        coord = [32.46820, 35.48803]
         zoom = 17.5
 
     dfl['geometry'] = dfl['geometry'].apply(wkt.loads)
@@ -132,6 +132,7 @@ def get_graph(year, crop, location, children1, children2, children3):
     map_fig = px.choropleth_mapbox(gdf,
                            geojson=gdf.geometry,
                            locations=gdf.index,
+                           color_continuous_scale = 'greens',
                            hover_name="treatment",
                            hover_data=["salinity", "water amount"],
                            color="total yield (ton/dunam)",
